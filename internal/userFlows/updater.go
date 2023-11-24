@@ -2,15 +2,14 @@ package userFlows
 
 import (
 	"context"
-	"fmt"
-	"github.com/Masterminds/squirrel"
 	"strconv"
+
+	"github.com/Masterminds/squirrel"
+	"github.com/cdipaolo/sentiment"
 )
 
 // Update updates a user flow element.
 func (s *Store) Update(ctx context.Context, step *Resource, response string) error {
-
-	fmt.Println("Update: ", step, response)
 	_, err := squirrel.Update("user_flows").
 		Set("complete", true).
 		Where(squirrel.Eq{
@@ -23,23 +22,17 @@ func (s *Store) Update(ctx context.Context, step *Resource, response string) err
 		return err
 	}
 
-	fmt.Println("Update the order_item ID: ", step.OrderItemID)
-
 	if step.Step.Options != nil {
-		fmt.Println("Update the order_item ID (rating): ", step.OrderItemID)
-
 		rating, err := strconv.Atoi(response)
 		if err != nil {
-			fmt.Println("RATING ERROR : ", response)
-
 			return nil
 		}
 
-		fmt.Println("RATING: ", rating)
-
 		_, err = squirrel.Update("order_items").
 			Set("rating", rating).
-			Where(squirrel.Eq{"id": step.OrderItemID}).
+			Where(squirrel.Eq{
+				"id": step.OrderItemID,
+			}).
 			PlaceholderFormat(squirrel.Dollar).
 			RunWith(s.db).
 			ExecContext(ctx)
@@ -47,19 +40,34 @@ func (s *Store) Update(ctx context.Context, step *Resource, response string) err
 			return err
 		}
 	} else {
-		fmt.Println("Update the order_item ID (feedback): ", step.OrderItemID)
-		fmt.Println("FEEDBACK: ", response)
+		//
+		// Kind of sentiment "analysis"
+		//
+		analysis := s.sentimentAnalysisModel.SentimentAnalysis(response, sentiment.English)
 
-		_, err = squirrel.Update("order_items").
+		_, err = squirrel.Update("orders").
 			Set("feedback", response).
-			Where(squirrel.Eq{"id": step.OrderItemID}).
+			Set("score", int(analysis.Score)).
+			Where(squirrel.Eq{"id": step.OrderID}).
 			PlaceholderFormat(squirrel.Dollar).
 			RunWith(s.db).
 			ExecContext(ctx)
+
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// AnalyzeSentiment returns the sentiment score for the given text
+func AnalyzeSentiment(text string) int {
+	model, err := sentiment.Restore()
+	if err != nil {
+		panic(err)
+	}
+
+	analysis := model.SentimentAnalysis(text, sentiment.English)
+	return int(analysis.Score)
 }

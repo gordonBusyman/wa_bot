@@ -3,15 +3,19 @@ package flow
 import (
 	"context"
 	"fmt"
+	"log"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+
 	"github.com/gordonBusyman/wa_bot/internal/userFlows"
 	"github.com/gordonBusyman/wa_bot/internal/users"
-	"log"
 )
 
 const (
+	// MsgTypeMessage is a message type simple message.
 	MsgTypeMessage = "message"
-	MsgTypeCQ      = "cq"
+	// MsgTypeCQ is a message type callback query.
+	MsgTypeCQ = "cq"
 )
 
 // Driver is a driver for a flow.
@@ -31,6 +35,7 @@ func (d *Driver) StartConversation(user *users.Resource) {
 	d.SendStepMessage(user.ChatID, step)
 }
 
+// HandleResponse handles a response from a user.
 func (d *Driver) HandleResponse(user *users.Resource, response string, _ string) {
 	currentStep, err := d.UserFlowsStore.RetrieveCurrent(context.Background(), user.ID)
 	if err != nil {
@@ -44,8 +49,6 @@ func (d *Driver) HandleResponse(user *users.Resource, response string, _ string)
 		log.Printf("error retrieving next step for user %d: %v", user.ID, err)
 	}
 
-	fmt.Println("HandleResponse NEXT: ", nextStep)
-
 	if nextStep != nil {
 		d.SendStepMessage(user.ChatID, nextStep)
 	} else {
@@ -54,6 +57,7 @@ func (d *Driver) HandleResponse(user *users.Resource, response string, _ string)
 	}
 }
 
+// SendStepMessage sends a message to a user.
 func (d *Driver) SendStepMessage(chatID int64, step *userFlows.Resource) {
 	var msg tgbotapi.MessageConfig
 
@@ -66,7 +70,7 @@ func (d *Driver) SendStepMessage(chatID int64, step *userFlows.Resource) {
 		for i := 0; i < len(options); i++ {
 			row[i] = tgbotapi.NewInlineKeyboardButtonData(
 				fmt.Sprintf("%v", options[i]),
-				fmt.Sprintf("score_%v", options[i]),
+				fmt.Sprintf("%v", options[i]),
 			)
 		}
 
@@ -76,12 +80,12 @@ func (d *Driver) SendStepMessage(chatID int64, step *userFlows.Resource) {
 		msg = tgbotapi.NewMessage(chatID, step.Step.Details)
 	}
 
-	_, err := d.Bot.Send(msg)
-	if err != nil {
+	if _, err := d.Bot.Send(msg); err != nil {
 		log.Printf("error sending message to user %d: %v", chatID, err)
 	}
 }
 
+// EndConversation ends a conversation with a user.
 func (d *Driver) EndConversation(chatID int64) {
 	msg := tgbotapi.NewMessage(chatID, "Thank you for your responses!")
 	d.Bot.Send(msg)

@@ -1,6 +1,6 @@
 package orders
 
-// Resource represents a user flow.
+// Resource represents an order.
 type Resource struct {
 	ID     int `json:"id"`
 	UserID int `json:"user_id"`
@@ -8,6 +8,7 @@ type Resource struct {
 	Items []Item `json:"items"`
 }
 
+// Item represents an order item.
 type Item struct {
 	ID        int `json:"id"`
 	OrderID   int `json:"order_id"`

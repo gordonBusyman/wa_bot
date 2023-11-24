@@ -7,6 +7,7 @@ type Resource struct {
 	StepID      int `json:"step_id"`
 	ProductID   int `json:"product_id"`
 	OrderItemID int `json:"order_item_id"`
+	OrderID     int `json:"order_id"`
 
 	Complete bool `json:"complete"`
 

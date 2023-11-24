@@ -3,7 +3,7 @@ package userFlows
 import (
 	"context"
 	"database/sql"
-	"fmt"
+
 	"github.com/Masterminds/squirrel"
 )
 
@@ -12,7 +12,6 @@ func (s *Store) CreateMany(ctx context.Context, userID int, flowID int, orderID 
 	//
 	// Get all steps for a flow_id
 	//
-	fmt.Println("STEP 1")
 	rows, err := squirrel.Select("id", "options").
 		From("flow_steps").
 		Where(squirrel.Eq{
@@ -24,19 +23,14 @@ func (s *Store) CreateMany(ctx context.Context, userID int, flowID int, orderID 
 	if err != nil {
 		return err
 	}
-	fmt.Println("STEP 2")
 
 	step := &Step{}
-
 	var options sql.NullString
 
 	for rows.Next() {
-		fmt.Println("STEP 3")
-
 		if err := rows.Scan(&step.ID, &options); err != nil {
 			return err
 		}
-		fmt.Println("STEP 4")
 
 		//
 		// If step has options, get all products for an order_id
@@ -60,7 +54,6 @@ func (s *Store) CreateMany(ctx context.Context, userID int, flowID int, orderID 
 					return err
 				}
 
-				fmt.Println("STEP ID", step.ID)
 				//
 				// Create a user flow element for each product
 				//
@@ -69,6 +62,7 @@ func (s *Store) CreateMany(ctx context.Context, userID int, flowID int, orderID 
 						"user_id":       userID,
 						"step_id":       step.ID,
 						"order_item_id": orderItemID,
+						"order_id":      orderID,
 					}).
 					PlaceholderFormat(squirrel.Dollar).
 					RunWith(s.db).
@@ -80,14 +74,14 @@ func (s *Store) CreateMany(ctx context.Context, userID int, flowID int, orderID 
 			//
 			_, err = squirrel.Insert("user_flows").
 				SetMap(map[string]any{
-					"user_id": userID,
-					"step_id": step.ID,
+					"user_id":  userID,
+					"step_id":  step.ID,
+					"order_id": orderID,
 				}).
 				PlaceholderFormat(squirrel.Dollar).
 				RunWith(s.db).
 				ExecContext(ctx)
 		}
-
 		if err != nil {
 			return err
 		}

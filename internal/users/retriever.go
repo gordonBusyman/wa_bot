@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/Masterminds/squirrel"
 )
 
-// Retrieve retrieves a user flow by id.
+// Retrieve retrieves a user by id.
 func (s *Store) Retrieve(ctx context.Context, id int) (*Resource, error) {
 	user := &Resource{
 		ID: id,

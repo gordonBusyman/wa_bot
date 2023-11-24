@@ -4,16 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/cdipaolo/sentiment"
 	"github.com/go-chi/chi"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	_ "github.com/lib/pq"
+
 	"github.com/gordonBusyman/wa_bot/api"
 	"github.com/gordonBusyman/wa_bot/flow"
 	"github.com/gordonBusyman/wa_bot/internal/userFlows"
 	"github.com/gordonBusyman/wa_bot/internal/users"
-	_ "github.com/lib/pq"
-	"log"
-	"net/http"
-	"time"
 )
 
 var (
@@ -25,7 +29,13 @@ var (
 func init() {
 	var err error
 
-	bot, err = tgbotapi.NewBotAPI("X")
+	// Retrieve the value of an environment variable
+	token := os.Getenv("CONNECTLY_BOT_TOKEN")
+	if token == "" {
+		panic("CONNECTLY_BOT_TOKEN is not set")
+	}
+
+	bot, err = tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -34,8 +44,24 @@ func init() {
 	u = tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
+	//export CONNECTLY_DB_HOST=localhost
+	//export CONNECTLY_DB_USERNAME=postgres
+	//export CONNECTLY_DB_PASSWORD=postgres
+	dbHost := os.Getenv("CONNECTLY_DB_HOST")
+	if token == "" {
+		panic("CONNECTLY_DB_HOST is not set")
+	}
+	dbUser := os.Getenv("CONNECTLY_DB_USERNAME")
+	if token == "" {
+		panic("CONNECTLY_DB_USERNAME is not set")
+	}
+	dbPass := os.Getenv("CONNECTLY_DB_PASSWORD")
+	if token == "" {
+		panic("CONNECTLY_DB_PASSWORD is not set")
+	}
+
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		"localhost", 5432, "postgres", "postgres", "postgres")
+		dbHost, 5432, dbUser, dbPass, "postgres")
 
 	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
@@ -44,10 +70,14 @@ func init() {
 }
 
 func main() {
+	model, err := sentiment.Restore()
+	if err != nil {
+		panic(err)
+	}
 
 	flowDriver := &flow.Driver{
 		Bot:            bot,
-		UserFlowsStore: userFlows.NewStore(db),
+		UserFlowsStore: userFlows.NewStore(db, &model),
 	}
 	go startTelegramBot(flowDriver)
 	go startHTTPServer(flowDriver)
@@ -86,13 +116,8 @@ func startTelegramBot(flowDriver *flow.Driver) {
 
 	// Process each update received
 	for update := range updates {
-		fmt.Println("update: ", update)
+		fmt.Printf("got update message: %+v", update)
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-
-		//if update.CallbackQuery != nil {
-		//	handleCallbackQuery(bot, update.CallbackQuery)
-		//	continue
-		//}
 
 		if update.Message == nil && update.CallbackQuery == nil {
 			continue
@@ -119,7 +144,13 @@ func startTelegramBot(flowDriver *flow.Driver) {
 
 				bot.Send(msg)
 			} else {
-				uStore.Create(ctx, update.Message)
+				u := &users.Resource{
+					ID:     update.Message.From.ID,
+					ChatID: update.Message.Chat.ID,
+					Name:   update.Message.From.FirstName,
+				}
+
+				uStore.Create(ctx, u)
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Thanks, "+update.Message.From.FirstName+", for registering!")
 
 				bot.Send(msg)
@@ -138,7 +169,7 @@ func startTelegramBot(flowDriver *flow.Driver) {
 		}
 
 		// Get the current step for the user
-		userFlowStep, err := userFlows.NewStore(db).RetrieveCurrent(ctx, userID)
+		userFlowStep, err := userFlows.NewStore(db, nil).RetrieveCurrent(ctx, userID)
 		if err != nil {
 			log.Printf("error retrieving user flow: %v", err)
 
@@ -160,43 +191,3 @@ func startTelegramBot(flowDriver *flow.Driver) {
 		bot.Send(reply)
 	}
 }
-
-//func newFlow(userID int) any {
-//	return userID
-//}
-//func scoreKeyboard() tgbotapi.InlineKeyboardMarkup {
-//	var keyboard tgbotapi.InlineKeyboardMarkup
-//	row := make([]tgbotapi.InlineKeyboardButton, 5)
-//	for i := 1; i <= 5; i++ {
-//		row[i-1] = tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d", i), fmt.Sprintf("score_%d", i))
-//	}
-//	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, row)
-//	return keyboard
-//}
-
-func handleCallbackQuery(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
-	callbackData := query.Data
-	chatID := query.Message.Chat.ID
-	messageID := query.Message.MessageID
-
-	// Respond to the callback query, acknowledging it
-	callbackConfig := tgbotapi.NewCallback(query.ID, "")
-	bot.AnswerCallbackQuery(callbackConfig)
-
-	// Handle different scores
-	var responseText string
-	switch callbackData {
-	case "score_1", "score_2", "score_3", "score_4", "score_5":
-		responseText = "Thanks for rating! Could you please share a brief opinion or description of your experience with our product? Your feedback is valuable to us!"
-
-		// responseText = fmt.Sprintf(": %s", callbackData[len("score_"):])
-	default:
-		responseText = "Unknown option selected"
-	}
-
-	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, responseText)
-	bot.Send(editMsg)
-}
-
-// docker run --name connectly -e POSTGRES_PASSWORD=postgres -d postgres
-// https://reintech.io/blog/creating-a-sentiment-analysis-tool-with-go

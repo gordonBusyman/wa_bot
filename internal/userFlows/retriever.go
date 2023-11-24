@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"github.com/Masterminds/squirrel"
 	"strings"
 )
@@ -16,9 +15,12 @@ func (s *Store) RetrieveCurrent(ctx context.Context, userID int) (*Resource, err
 		Step:    &Step{},
 		Product: &Product{},
 	}
-	var options sql.NullString
-	var orderItemID sql.NullInt32
-	var productName sql.NullString
+	var (
+		options     sql.NullString
+		productName sql.NullString
+		orderItemID sql.NullInt32
+		orderID     sql.NullInt32
+	)
 
 	err := squirrel.Select(
 		"user_flows.id",
@@ -27,6 +29,7 @@ func (s *Store) RetrieveCurrent(ctx context.Context, userID int) (*Resource, err
 		"flow_steps.options",
 		"order_items.id",
 		"products.name",
+		"user_flows.order_id",
 	).
 		From("user_flows").
 		LeftJoin("flow_steps ON user_flows.step_id = flow_steps.id").
@@ -48,6 +51,7 @@ func (s *Store) RetrieveCurrent(ctx context.Context, userID int) (*Resource, err
 			&options,
 			&orderItemID,
 			&productName,
+			&orderID,
 		)
 
 	if errors.Is(err, sql.ErrNoRows) {
@@ -69,6 +73,9 @@ func (s *Store) RetrieveCurrent(ctx context.Context, userID int) (*Resource, err
 		flowStep.Product.Name = productName.String
 	}
 
-	fmt.Println("IN RETRIEVE orderItemID: ", flowStep)
+	if orderID.Valid {
+		flowStep.OrderID = int(orderID.Int32)
+	}
+
 	return flowStep, nil
 }

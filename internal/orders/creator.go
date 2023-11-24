@@ -3,12 +3,12 @@ package orders
 import (
 	"context"
 	"fmt"
+
 	"github.com/Masterminds/squirrel"
 )
 
-// Create creates a new user.
+// Create creates a new order.
 func (s *Store) Create(ctx context.Context, userID int, items []Item) (*Resource, error) {
-
 	order := &Resource{
 		UserID: userID,
 	}
@@ -34,8 +34,6 @@ func (s *Store) Create(ctx context.Context, userID int, items []Item) (*Resource
 		return nil, err
 	}
 
-	fmt.Printf("Order ID INSERTED: %d\n", order.ID)
-
 	for _, item := range items {
 		err = squirrel.Insert("order_items").
 			SetMap(map[string]any{
@@ -48,12 +46,11 @@ func (s *Store) Create(ctx context.Context, userID int, items []Item) (*Resource
 			RunWith(tx).
 			QueryRowContext(ctx).
 			Scan(&item.ID)
-
-		order.Items = append(order.Items, item)
-
 		if err != nil {
 			return nil, err
 		}
+
+		order.Items = append(order.Items, item)
 	}
 
 	tx.Commit()

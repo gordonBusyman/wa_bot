@@ -2,17 +2,17 @@ package users
 
 import (
 	"context"
+
 	"github.com/Masterminds/squirrel"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // Create creates a new user.
-func (s *Store) Create(ctx context.Context, update *tgbotapi.Message) (*Resource, error) {
+func (s *Store) Create(ctx context.Context, res *Resource) (*Resource, error) {
 	_, err := squirrel.Insert("users").
 		SetMap(map[string]any{
-			"id":      update.From.ID,
-			"chat_id": update.Chat.ID,
-			"name":    update.From.FirstName,
+			"id":      res.ID,
+			"chat_id": res.ChatID,
+			"name":    res.Name,
 		}).
 		PlaceholderFormat(squirrel.Dollar).
 		RunWith(s.db).
@@ -22,5 +22,5 @@ func (s *Store) Create(ctx context.Context, update *tgbotapi.Message) (*Resource
 		return nil, err
 	}
 
-	return s.Retrieve(ctx, update.From.ID)
+	return s.Retrieve(ctx, res.ID)
 }
