@@ -66,7 +66,7 @@ This GoLang-based Telegram bot is designed for businesses to gather product rati
 - **Creating Orders via HTTP**: Send a POST request to `/orders/{user_id}` with the order details. The bot will process the order and send a notification to the user on Telegram.
 
 ## Database Schema
-![alt text](https://github.com/gordonBusyman/wa_bot/blob/db.png?raw=true)
+![alt text](blob/db.png?raw=true)
 
 ## Configuration
 
