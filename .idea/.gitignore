@@ -6,3 +6,8 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+/modules.xml
+/sqldialects.xml
+/JetClient/state.xml
+/vcs.xml
+/wa_bot.iml
